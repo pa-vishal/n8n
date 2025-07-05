@@ -1,10 +1,10 @@
+import { Logger } from '@n8n/backend-common';
+import { WorkflowRepository } from '@n8n/db';
 import { Service } from '@n8n/di';
 import type { Response } from 'express';
-import { Logger } from 'n8n-core';
 import { Workflow, CHAT_TRIGGER_NODE_TYPE } from 'n8n-workflow';
 import type { INode, IWebhookData, IHttpRequestMethods } from 'n8n-workflow';
 
-import { WorkflowRepository } from '@/databases/repositories/workflow.repository';
 import { NotFoundError } from '@/errors/response-errors/not-found.error';
 import { WebhookNotFoundError } from '@/errors/response-errors/webhook-not-found.error';
 import { NodeTypes } from '@/node-types';
@@ -19,6 +19,8 @@ import type {
 	WebhookAccessControlOptions,
 	WebhookRequest,
 } from './webhook.types';
+import { authAllowlistedNodes } from './constants';
+import { sanitizeWebhookRequest } from './webhook-request-sanitizer';
 
 /**
  * Service for handling the execution of live webhooks, i.e. webhooks
@@ -124,6 +126,10 @@ export class LiveWebhooks implements IWebhookManager {
 
 		if (workflowStartNode === null) {
 			throw new NotFoundError('Could not find node to process webhook.');
+		}
+
+		if (!authAllowlistedNodes.has(workflowStartNode.type)) {
+			sanitizeWebhookRequest(request);
 		}
 
 		return await new Promise((resolve, reject) => {
